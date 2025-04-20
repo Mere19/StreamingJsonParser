@@ -3,8 +3,10 @@ import json
 """
 Assumptions:
 - The input is a valid JSON string.
-- The JSON string is parsed into a Python dictionary.
+- The JSON string can be parsed into a (nested) Python dictionary.
 """
+
+# TODO: rephrase the comments
 
 class StreamingJsonParser:
     def __init__(self):
@@ -15,7 +17,7 @@ class StreamingJsonParser:
         self.cursor = 0  # Tracks the position of the next char to be parsed in buffer
         self.stack = []  # Tracks the stack of objects being parsed
         self.current_object = None  # Tracks the current object being constructed
-        self.key = None  # Tracks the current key being processed
+        self.curr_key = None  # Tracks the current key being processed
         self.parsed_object = None
 
     def consume(self, buffer: str):
@@ -62,18 +64,28 @@ class StreamingJsonParser:
         """
         Creates a new object to be used for parsing.
         """
-        if self.current_object is None:
-            self.current_object = {}
-        else:
-            self.stack.append(self.current_object)
-            self.current_object = {}
+        if self.current_object is not None:
+            self.stack.append((self.current_object, self.curr_key))
+        self.current_object = {}
+        self.curr_key = None
     
     def _close_object(self):
         """
         Completes the current object and resets the buffer.
         """
-        self.parsed_object = self.buffer
-        self.buffer = ""
+        # TODO: need to handle lists
+        if self.stack:
+            parent_object, parent_key = self.stack.pop()
+            if parent_key is not None:
+                parent_object[parent_key] = self.current_object
+            else:
+                self.parsed_object = self.current_object
+            self.current_object = parent_object
+        else:
+            # If stack is empty, we are done parsing
+            self.parsed_object = self.current_object
+            self.current_object = None
+        self.key = None
 
     def _handle_key(self, key):
         """
