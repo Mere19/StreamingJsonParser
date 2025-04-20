@@ -117,8 +117,10 @@ class StreamingJsonParser:
         if self.current_key is not None:
             self.current_object[self.key] = new_list
             self.key = None
+            self.list_stack.append(new_list)
         elif self.current_list is not None:
             self.current_list.append(new_list)
+            self.list_stack.append(self.current_list)
         else:
             raise Exception("Invalid state: Cannot open list without a key or current list")
         
@@ -129,11 +131,9 @@ class StreamingJsonParser:
         Completes the current list and resets the buffer.
         """
         if self.current_list is not None:
-            self.current_object[self.key] = self.current_list
-            self.key = None
             self.current_list = None
         else:
-            raise Exception("Non-opened list cannot be closed")
+            raise Exception("Invalid state: No open list to be closed")
 
     def _handle_key(self, key):
         """
