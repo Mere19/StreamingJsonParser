@@ -131,7 +131,10 @@ class StreamingJsonParser:
         Completes the current list and resets the buffer.
         """
         if self.current_list is not None:
-            self.current_list = None
+            if self.list_stack:
+                self.current_list = self.list_stack.pop()
+            else:
+                self.current_list = None
         else:
             raise Exception("Invalid state: No open list to be closed")
 
