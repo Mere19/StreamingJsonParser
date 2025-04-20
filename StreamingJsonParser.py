@@ -11,8 +11,7 @@ Assumptions:
 - Key is closed when the corresponding value is set (doesn't have to be completed).
 """
 
-# TODO: rephrase the 
-# TODO: create exception types
+# TODO: rephrase the comments
 
 class StreamingJsonParser:
     def __init__(self):
@@ -49,26 +48,33 @@ class StreamingJsonParser:
         """
         while self.cursor < len(self.buffer):
             char = self.buffer[self.cursor]
-            self.cursor += 1
             if char == '{':
+                self.cursor += 1
                 self._open_object()
             elif char == '}':
+                self.cursor += 1
                 self._close_object()
             elif char == '"':
+                self.cursor += 1
                 # handle strings
                 s = self.buffer[self.cursor:self.buffer.find('"', self.cursor)]
-                self.cursor += len(s)
+                self.cursor += (len(s) + 1)  # +1 for the closing quote
                 self._handle_strings(s)
             elif char in '0123456789':
                 # handle numbers
-                number = self.buffer[self.cursor:self.buffer.find(',', self.cursor)]
-                self.cursor += len(number)
-                self._handle_numbers(float(number))
+                val = self.buffer[self.cursor:self.buffer.find(',', self.cursor)]
+                self.cursor += len(val)
+                self._handle_numbers(float(val))
             elif char in 'tf':
                 # handle boolean values
-                boolean = self.buffer[self.cursor:self.buffer.find(',', self.cursor)]
-                self.cursor += len(boolean)
-                self._handle_boolean(boolean == 'true')
+                val = self.buffer[self.cursor:self.buffer.find(',', self.cursor)]
+                self.cursor += len(val)
+                self._handle_boolean(val == 'true')
+            elif char == 'n':
+                # handle null values
+                val = self.buffer[self.cursor:self.buffer.find(',', self.cursor)]
+                self.cursor += len(val)
+                self._handle_null(val)
             elif char == '[':
                 self._open_list()
             elif char == ']':   
@@ -76,8 +82,9 @@ class StreamingJsonParser:
             elif char in ' \n\t\r:,':
                 pass
             else:
-                # TODO: handle other characters
-                pass
+                # handle exceptions
+                raise Exception(f"Invalid character '{char}' at position {self.cursor}")
+                
 
             self.cursor += 1
 
@@ -107,6 +114,61 @@ class StreamingJsonParser:
             # If stack is empty, we are done parsing
             self.current_object = None
 
+    def _handle_strings(self, s):
+        """
+        Handles strings in the JSON object.
+        """        
+        # if s is an element of a list, append it to the list
+        if self.current_list is not None:
+            self.current_list.append(s)
+        # if s is a key, set it as the current key
+        elif self.current_key is None:
+            self.current_key = s
+        # if s is a value, set it as the current value
+        elif self.current_key is not None:
+            self.current_object[self.current_key] = s
+            self.current_key = None
+        else:
+            raise Exception("Invalid state: Cannot parse string without a list or an object")
+
+    def _handle_numbers(self, number):
+        """
+        Handles numbers in the JSON object.
+        """
+        # if number is an element of a list, append it to the list
+        if self.current_list is not None:
+            self.current_list.append(number)
+        # if number is a value, set it as the current value
+        elif self.current_key is not None:
+            self.current_object[self.current_key] = number
+            self.current_key = None
+        else:
+            raise Exception("Invalid state: Cannot parse number without a list or a key")
+
+    def _handle_boolean(self, boolean):
+        """
+        Handles boolean values in the JSON object.
+        """
+        if self.current_list is not None:
+            self.current_list.append(boolean)
+        elif self.current_key is not None:
+            self.current_object[self.current_key] = boolean
+            self.current_key = None
+        else:
+            raise Exception("Invalid state: Cannot parse boolean without a list or a key")
+
+    def _handle_null(self):
+        """
+        Handles null values in the JSON object.
+        """
+        if self.current_list is not None:
+            self.current_list.append(None)
+        elif self.current_key is not None:
+            self.current_object[self.current_key] = None
+            self.current_key = None
+        else:
+            raise Exception("Invalid state: Cannot parse null without a list or a key")
+        
     def _open_list(self):
         """
         Creates a new list to be used for parsing.
@@ -135,88 +197,3 @@ class StreamingJsonParser:
                 self.current_list = None
         else:
             raise Exception("Invalid state: No open list to be closed")
-
-    def _handle_lists(self, value):
-        """
-        TODO: Handles the lists in the JSON object.
-        """
-        if isinstance(value, list):
-            self.current_object[self.key] = value
-            self.key = None
-        elif isinstance(value, dict):
-            self.current_object[self.key] = value
-            self.key = None
-        else:
-            raise Exception("Invalid value for list")
-
-    def _handle_values(self, value):
-        """
-        Handles the values in the JSON object.
-        """
-        if isinstance(value, dict):
-            self.current_object[self.key] = value
-            self.key = None
-        elif isinstance(value, list):
-            self.current_object[self.key] = value
-            self.key = None
-        elif isinstance(value, (int, float)):
-            self._handle_numbers(value)
-        elif isinstance(value, str):
-            self._handle_strings(value)
-        elif isinstance(value, bool):
-            self._handle_boolean(value)
-        elif value is None:
-            self._handle_null()
-
-    def _handle_numbers(self, number):
-        """
-        Handles numbers in the JSON object.
-        """
-        # if number is an element of a list, append it to the list
-        if self.current_list is not None:
-            self.current_list.append(number)
-        # if number is a value, set it as the current value
-        elif self.current_key is not None:
-            self.current_object[self.current_key] = number
-            self.current_key = None
-        else:
-            raise Exception("Invalid state: Cannot parse number without a list or a key")
-
-    def _handle_strings(self, s):
-        """
-        Handles strings in the JSON object.
-        """        
-        # if s is an element of a list, append it to the list
-        if self.current_list is not None:
-            self.current_list.append(s)
-        # if s is a key, set it as the current key
-        elif self.current_key is None:
-            self.current_key = s
-        # if s is a value, set it as the current value
-        elif self.current_key is not None:
-            self.current_object[self.current_key] = s
-            self.current_key = None
-        else:
-            raise Exception("Invalid state: Cannot parse string without a list or an object")
-
-    def _handle_boolean(self, boolean):
-        """
-        Handles boolean values in the JSON object.
-        """
-        if self.current_list is not None:
-            self.current_list.append(boolean)
-        elif self.current_key is not None:
-            self.current_object[self.current_key] = boolean
-            self.current_key = None
-        else:
-            raise Exception("Invalid state: Cannot parse boolean without a list or a key")
-
-    def _handle_null(self):
-        """
-        Handles null values in the JSON object.
-        """
-        if self.key is not None:
-            self.current_object[self.key] = None
-            self.key = None
-        else:
-            self.current_object = None
