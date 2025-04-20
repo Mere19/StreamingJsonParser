@@ -94,7 +94,7 @@ class StreamingJsonParser:
     
     def _close_object(self):
         """
-        Completes the current object and resets the buffer.
+        TODO: Completes the current object and resets the buffer.
         """
         if self.stack:
             parent_object, parent_key = self.stack.pop()
@@ -113,15 +113,16 @@ class StreamingJsonParser:
         """
         Creates a new list to be used for parsing.
         """
+        new_list = []
         if self.current_key is not None:
-            self.current_list = []
-            self.current_object[self.key] = self.current_list
+            self.current_object[self.key] = new_list
             self.key = None
         elif self.current_list is not None:
-            self.current_list.append([])
-            self.current_list = []
+            self.current_list.append(new_list)
         else:
             raise Exception("Invalid state: Cannot open list without a key or current list")
+        
+        self.current_list = new_list
 
     def _close_list(self):
         """
