@@ -6,7 +6,12 @@ Assumptions:
 - The JSON string can be parsed into a (nested) Python dictionary.
 """
 
-# TODO: rephrase the comments
+"""
+- Key is closed when the corresponding value is determined.
+"""
+
+# TODO: rephrase the 
+# TODO: create exception types
 
 class StreamingJsonParser:
     def __init__(self):
@@ -15,9 +20,11 @@ class StreamingJsonParser:
         """
         self.buffer = ""
         self.cursor = 0  # Tracks the position of the next char to be parsed in buffer
-        self.stack = []  # Tracks the stack of objects being parsed
+        self.object_stack = []  # Tracks the stack of objects being parsed
         self.current_object = None  # Tracks the current object being constructed
-        self.curr_key = None  # Tracks the current key being processed
+        self.current_key = None  # Tracks the current key being processed
+        self.list_stack = [] # Tracks the stack of lists being parsed
+        self.current_list = None  # Tracks the current list being constructed
         self.parsed_object = None
 
     def consume(self, buffer: str):
@@ -54,6 +61,20 @@ class StreamingJsonParser:
                 self.key = None
             elif char in ' \n\t\r':
                 pass
+            elif char == '[':
+                self._open_list()
+            elif char == ']':   
+                # handle end of list
+                if self.stack:
+                    parent_object, parent_key = self.stack.pop()
+                    if isinstance(parent_object, list):
+                        parent_object.append(self.current_object)
+                    else:
+                        parent_object[parent_key] = self.current_object
+                    self.current_object = parent_object
+                else:
+                    self.parsed_object = self.current_object
+                    self.current_object = None
             else:
                 # TODO: handle other characters
                 pass
@@ -87,12 +108,50 @@ class StreamingJsonParser:
             self.current_object = None
         self.key = None
 
+    def _open_list(self):
+        """
+        Creates a new list to be used for parsing.
+        """
+        if self.current_key is not None:
+            self.current_list = []
+            self.current_object[self.key] = []
+            self.key = None
+        elif self.current_list is not None:
+            self.current_list.append([])
+            self.current_list = []
+        else:
+            raise Exception("Invalid state: Cannot open list without a key or current list")
+
+    def _close_list(self):
+        """
+        Completes the current list and resets the buffer.
+        """
+        if self.current_list is not None:
+            self.current_object[self.key] = self.current_list
+            self.key = None
+            self.current_list = None
+        else:
+            raise Exception("Non-opened list cannot be closed")
+
     def _handle_key(self, key):
         """
         Handles the key in the JSON object.
         """
         if self.key is None:
             self.key = key
+
+    def _handle_lists(self, value):
+        """
+        TODO: Handles the lists in the JSON object.
+        """
+        if isinstance(value, list):
+            self.current_object[self.key] = value
+            self.key = None
+        elif isinstance(value, dict):
+            self.current_object[self.key] = value
+            self.key = None
+        else:
+            raise Exception("Invalid value for list")
 
     def _handle_values(self, value):
         """
