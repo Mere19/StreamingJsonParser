@@ -99,20 +99,15 @@ class StreamingJsonParser:
     
     def _close_object(self):
         """
-        TODO: Completes the current object and resets the buffer.
+        Completes the current object and resets the buffer.
         """
         if self.stack:
-            parent_object, parent_key = self.object_stack.pop()
-            if parent_key is not None:
-                parent_object[parent_key] = self.current_object
-            else:
-                self.parsed_object = self.current_object
+            # If stack is not empty, continue parsing the parent object
+            parent_object = self.object_stack.pop()
             self.current_object = parent_object
         else:
             # If stack is empty, we are done parsing
-            self.parsed_object = self.current_object
             self.current_object = None
-        self.key = None
 
     def _open_list(self):
         """
