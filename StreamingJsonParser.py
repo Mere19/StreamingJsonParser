@@ -87,17 +87,22 @@ class StreamingJsonParser:
         """
         Creates a new object to be used for parsing.
         """
-        if self.current_object is not None:
-            self.stack.append((self.current_object, self.curr_key))
-        self.current_object = {}
-        self.curr_key = None
+        new_object = {}
+        if self.current_object is None:
+            self.parsed_object = new_object
+        else:
+            self.current_object[self.current_key] = new_object
+            self.stack.append(self.current_object)
+        
+        self.current_object = new_object
+        self.current_key = None
     
     def _close_object(self):
         """
         TODO: Completes the current object and resets the buffer.
         """
         if self.stack:
-            parent_object, parent_key = self.stack.pop()
+            parent_object, parent_key = self.object_stack.pop()
             if parent_key is not None:
                 parent_object[parent_key] = self.current_object
             else:
