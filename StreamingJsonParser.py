@@ -4,10 +4,11 @@ import json
 Assumptions:
 - The input is a valid JSON string.
 - The JSON string can be parsed into a (nested) Python dictionary.
+- The get() method returns the current state of the current root JSON object.
 """
 
 """
-- Key is closed when the corresponding value is determined.
+- Key is closed when the corresponding value is set.
 """
 
 # TODO: rephrase the 
@@ -25,7 +26,7 @@ class StreamingJsonParser:
         self.current_key = None  # Tracks the current key being processed
         self.list_stack = [] # Tracks the stack of lists being parsed
         self.current_list = None  # Tracks the current list being constructed
-        self.parsed_object = None
+        self.parsed_object = None   # TODO: this should be the root object
 
     def consume(self, buffer: str):
         """
@@ -37,6 +38,7 @@ class StreamingJsonParser:
     def get(self):
         """
         Returns the current state of the parsed JSON object.
+        TODO: this should be the root object
         """
         return self.parsed_object
 
@@ -94,7 +96,6 @@ class StreamingJsonParser:
         """
         Completes the current object and resets the buffer.
         """
-        # TODO: need to handle lists
         if self.stack:
             parent_object, parent_key = self.stack.pop()
             if parent_key is not None:
@@ -114,7 +115,7 @@ class StreamingJsonParser:
         """
         if self.current_key is not None:
             self.current_list = []
-            self.current_object[self.key] = []
+            self.current_object[self.key] = self.current_list
             self.key = None
         elif self.current_list is not None:
             self.current_list.append([])
