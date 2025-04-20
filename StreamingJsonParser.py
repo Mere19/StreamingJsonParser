@@ -49,34 +49,27 @@ class StreamingJsonParser:
         """
         while self.cursor < len(self.buffer):
             char = self.buffer[self.cursor]
+            self.cursor += 1
             if char == '{':
                 self._open_object()
             elif char == '}':
                 self._close_object()
             elif char == '"':
-                # handle string (key or value)
-                if self.key is None:
-                    self._handle_key()
-                else:
-                    self._handle_values()
-            elif char == ':':
-                self.key = None
-            elif char in ' \n\t\r':
-                pass
+                # handle strings
+                s = self.buffer[self.cursor:self.buffer.find('"', self.cursor)]
+                self.cursor += len(s)
+                self._handle_strings(s)
             elif char == '[':
                 self._open_list()
             elif char == ']':   
-                # handle end of list
-                if self.stack:
-                    parent_object, parent_key = self.stack.pop()
-                    if isinstance(parent_object, list):
-                        parent_object.append(self.current_object)
-                    else:
-                        parent_object[parent_key] = self.current_object
-                    self.current_object = parent_object
-                else:
-                    self.parsed_object = self.current_object
-                    self.current_object = None
+                self._close_list()
+            elif char in '0123456789':
+                # handle numbers
+                number = self.buffer[self.cursor:self.buffer.find(',', self.cursor)]
+                self.cursor += len(number)
+                self._handle_numbers(float(number))
+            elif char in ' \n\t\r:,':
+                pass
             else:
                 # TODO: handle other characters
                 pass
@@ -138,13 +131,6 @@ class StreamingJsonParser:
         else:
             raise Exception("Invalid state: No open list to be closed")
 
-    def _handle_key(self, key):
-        """
-        Handles the key in the JSON object.
-        """
-        if self.key is None:
-            self.key = key
-
     def _handle_lists(self, value):
         """
         TODO: Handles the lists in the JSON object.
@@ -185,15 +171,22 @@ class StreamingJsonParser:
             self.current_object[self.key] = number
             self.key = None
 
-    def _handle_strings(self, string):
+    def _handle_strings(self, s):
         """
         Handles strings in the JSON object.
-        """
-        if self.key is not None:
-            self.current_object[self.key] = string
-            self.key = None
+        """        
+        # if s is an element of a list, append it to the list
+        if self.current_list is not None:
+            self.current_list.append(s)
+        # if s is a key, set it as the current key
+        elif self.current_key is None:
+            self.current_key = s
+        # if s is a value, set it as the current value
+        elif self.current_key is not None:
+            self.current_object[self.current_key] = s
+            self.current_key = None
         else:
-            self.current_object = string
+            raise Exception("Invalid state: Cannot parse string without a list or an object")
 
     def _handle_boolean(self, boolean):
         """
