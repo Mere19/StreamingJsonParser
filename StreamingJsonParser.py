@@ -2,13 +2,13 @@ import json
 
 """
 Assumptions:
-- The input is a valid JSON string.
+- The input is a valid JSON object.
 - The JSON string can be parsed into a (nested) Python dictionary.
 - The get() method returns the current state of the current root JSON object.
 """
 
 """
-- Key is closed when the corresponding value is set.
+- Key is closed when the corresponding value is set (doesn't have to be completed).
 """
 
 # TODO: rephrase the 
@@ -64,6 +64,11 @@ class StreamingJsonParser:
                 number = self.buffer[self.cursor:self.buffer.find(',', self.cursor)]
                 self.cursor += len(number)
                 self._handle_numbers(float(number))
+            elif char in 'tf':
+                # handle boolean values
+                boolean = self.buffer[self.cursor:self.buffer.find(',', self.cursor)]
+                self.cursor += len(boolean)
+                self._handle_boolean(boolean == 'true')
             elif char == '[':
                 self._open_list()
             elif char == ']':   
@@ -198,11 +203,13 @@ class StreamingJsonParser:
         """
         Handles boolean values in the JSON object.
         """
-        if self.key is not None:
-            self.current_object[self.key] = boolean
-            self.key = None
+        if self.current_list is not None:
+            self.current_list.append(boolean)
+        elif self.current_key is not None:
+            self.current_object[self.current_key] = boolean
+            self.current_key = None
         else:
-            self.current_object = boolean
+            raise Exception("Invalid state: Cannot parse boolean without a list or a key")
 
     def _handle_null(self):
         """
