@@ -59,15 +59,15 @@ class StreamingJsonParser:
                 s = self.buffer[self.cursor:self.buffer.find('"', self.cursor)]
                 self.cursor += len(s)
                 self._handle_strings(s)
-            elif char == '[':
-                self._open_list()
-            elif char == ']':   
-                self._close_list()
             elif char in '0123456789':
                 # handle numbers
                 number = self.buffer[self.cursor:self.buffer.find(',', self.cursor)]
                 self.cursor += len(number)
                 self._handle_numbers(float(number))
+            elif char == '[':
+                self._open_list()
+            elif char == ']':   
+                self._close_list()
             elif char in ' \n\t\r:,':
                 pass
             else:
@@ -167,9 +167,15 @@ class StreamingJsonParser:
         """
         Handles numbers in the JSON object.
         """
-        if self.key is not None:
-            self.current_object[self.key] = number
-            self.key = None
+        # if number is an element of a list, append it to the list
+        if self.current_list is not None:
+            self.current_list.append(number)
+        # if number is a value, set it as the current value
+        elif self.current_key is not None:
+            self.current_object[self.current_key] = number
+            self.current_key = None
+        else:
+            raise Exception("Invalid state: Cannot parse number without a list or a key")
 
     def _handle_strings(self, s):
         """
